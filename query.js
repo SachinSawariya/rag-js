@@ -29,3 +29,7 @@ Answer:`;
   return await generate(prompt);
 }
 
+export async function askSimple(question) {
+  return await generate(question);
+}
+

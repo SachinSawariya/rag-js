@@ -1,5 +1,5 @@
 import readlineSync from "readline-sync";
-import { ask } from "./query.js";
+import { ask, askSimple } from "./query.js";
 
 async function main() {
   console.log("RAG CLI - Ask questions about YouTube\nType 'exit' to quit\n");
@@ -18,8 +18,26 @@ async function main() {
     
     try {
       console.log("\nThinking...");
-      const answer = await ask(question);
-      console.log("\nAnswer:\n", answer);
+      
+      // Get both RAG and simple answers
+      const [ragAnswer, simpleAnswer] = await Promise.allSettled([
+        ask(question),
+        askSimple(question)
+      ]);
+      
+      // Display RAG Answer
+      if (ragAnswer.status === "fulfilled") {
+        console.log("\nRAG Answer:\n", ragAnswer.value);
+      } else {
+        console.error("\nRAG Answer Error:", ragAnswer.reason.message);
+      }
+      
+      // Display Simple Answer
+      if (simpleAnswer.status === "fulfilled") {
+        console.log("\nSimple Answer:\n", simpleAnswer.value);
+      } else {
+        console.error("\nSimple Answer Error:", simpleAnswer.reason.message);
+      }
     } catch (error) {
       console.error("\nError:", error.message);
     }
