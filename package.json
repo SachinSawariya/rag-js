@@ -2,15 +2,29 @@
   "name": "simple-rag",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "start": "node index.js",
-    "ingest": "node ingest.js"
+    "start": "tsx index.ts",
+    "ingest": "tsx ingest.ts",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint *.ts",
+    "lint:fix": "eslint *.ts --fix"
   },
   "dependencies": {
-    "ollama": "^0.5.0",
     "chromadb": "^1.8.1",
+    "ollama": "^0.5.0",
     "readline-sync": "^1.4.10"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.1",
+    "@types/readline-sync": "^1.4.8",
+    "@typescript-eslint/eslint-plugin": "^8.49.0",
+    "@typescript-eslint/parser": "^8.49.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.49.0"
   }
 }
-
