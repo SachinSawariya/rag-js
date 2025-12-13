@@ -1,6 +1,6 @@
 # Simple RAG CLI
 
-A minimal, production-ready Retrieval-Augmented Generation (RAG) application built with Node.js, Ollama, and ChromaDB. This CLI tool allows you to ask questions about your documents using local LLMs and embeddings.
+A minimal, production-ready Retrieval-Augmented Generation (RAG) application built with TypeScript, Node.js, Ollama, and ChromaDB. This CLI tool allows you to ask questions about your documents using local LLMs and embeddings.
 
 ## Overview
 
@@ -14,21 +14,24 @@ This RAG application:
 
 ```mermaid
 flowchart TD
-    User["User CLI Input"] --> Main["index.js"]
-    Main --> Query["query.js"]
-    Query --> Ollama["ollama.js"]
-    Query --> Chroma["chroma.js"]
-    Ollama --> EmbedAPI["Ollama Embeddings API"]
-    Ollama --> GenAPI["Ollama Generate API"]
-    Chroma --> ChromaDB[("ChromaDB")]
+    User["User CLI Input"] --> CLI["CLI.ts"]
+    CLI --> QueryService["QueryService.ts"]
+    QueryService --> OllamaService["OllamaService.ts"]
+    QueryService --> ChromaService["ChromaService.ts"]
+    OllamaService --> EmbedAPI["Ollama Embeddings API"]
+    OllamaService --> GenAPI["Ollama Generate API"]
+    ChromaService --> ChromaDB[("ChromaDB")]
     
-    Ingest["ingest.js"] --> Ollama
-    Ingest --> Chroma
-    Ingest --> FileSystem["YouTube.txt"]
+    IngestionService["IngestionService.ts"] --> OllamaService
+    IngestionService --> ChromaService
+    IngestionService --> FileSystem["YouTube.txt"]
     
-    Config["config.js"] --> Main
-    Config --> Query
-    Config --> Ingest
+    Config["Config.ts"] --> CLI
+    Config --> QueryService
+    Config --> IngestionService
+    
+    Main["index.ts"] --> CLI
+    Main --> Config
 ```
 
 **Alternative Text Diagram** (for markdown previewers without Mermaid support):
@@ -40,18 +43,24 @@ flowchart TD
        │
        ▼
 ┌─────────────┐
-│  index.js   │◄────┐
+│  index.ts   │◄────┐
 └──────┬──────┘     │
        │            │
        ▼            │
 ┌─────────────┐     │
-│  query.js   │     │
+│   CLI.ts    │     │
+└──────┬──────┘     │
+       │            │
+       ▼            │
+┌─────────────┐     │
+│QueryService │     │
 └──┬──────┬───┘     │
    │      │         │
    │      │         │
    ▼      ▼         │
 ┌────-─┐ ┌-─────┐   │
-│ollama│ │chroma│   │
+│Ollama│ │Chroma│   │
+│Service│Service│   │
 └──┬─--┘ └─-─┬──┘   │
    │         │      │
    │         ▼      │
@@ -66,12 +75,14 @@ flowchart TD
 └──────────────┘    │
                     │
 ┌─────────────┐     │
-│  ingest.js  │─────┘
+│Ingestion    │     │
+│Service.ts   │─────┘
 └──┬──────┬───┘
    │      │
    ▼      ▼
 ┌─────-┐ ┌─────-┐
-│ollama│ │chroma│
+│Ollama│ │Chroma│
+│Service│Service│
 └─────-┘ └─────-┘
    │
    ▼
@@ -99,6 +110,7 @@ flowchart TD
 ### System Requirements
 
 - **Node.js** ≥ 18
+- **TypeScript** (installed via npm)
 - **Docker** (for ChromaDB)
 - **Ollama** installed and running locally
 
@@ -149,10 +161,31 @@ ollama pull mxbai-embed-large
 
 ## Configuration
 
-Configuration is managed in `config.js`. You can override defaults using environment variables:
+Configuration is managed in `src/utils/Config.ts` as a TypeScript class. The configuration interfaces are defined in `src/models/Config.ts` and exported from `src/models/index.ts`. You can override defaults using environment variables:
 
-```javascript
-// Default configuration
+```typescript
+// Configuration interfaces (from src/models/Config.ts)
+interface OllamaConfig {
+  baseUrl: string;
+  embeddingModel: string;
+  llmModel: string;
+}
+
+interface ChromaConfig {
+  url: string;
+  collectionName: string;
+}
+
+interface ChunkingConfig {
+  chunkSize: number;      // characters per chunk
+  chunkOverlap: number;   // overlap between chunks
+}
+
+interface RetrievalConfig {
+  nResults: number;       // number of chunks to retrieve
+}
+
+// Default configuration values
 {
   ollama: {
     baseUrl: "http://localhost:11434",
@@ -164,11 +197,11 @@ Configuration is managed in `config.js`. You can override defaults using environ
     collectionName: "rag_docs"
   },
   chunking: {
-    chunkSize: 1000,      // characters per chunk
-    chunkOverlap: 200     // overlap between chunks
+    chunkSize: 1000,
+    chunkOverlap: 200
   },
   retrieval: {
-    nResults: 3           // number of chunks to retrieve
+    nResults: 3
   }
 }
 ```
@@ -197,7 +230,13 @@ This will:
 **Note**: If documents already exist, the ingestion will be skipped. Use `--force` to re-ingest:
 
 ```bash
-node ingest.js --force
+npm run ingest -- --force
+```
+
+Or run directly with tsx:
+
+```bash
+tsx src/services/IngestionService.ts --force
 ```
 
 ### 2. Run the CLI
@@ -216,6 +255,12 @@ Once the CLI is running, you can ask questions:
 Question: When was YouTube founded?
 ```
 
+The CLI will display two answers for comparison:
+- **RAG Answer**: Generated using retrieved context from your documents
+- **Simple Answer**: Generated directly by the LLM without context retrieval
+
+This allows you to compare the quality of RAG-enhanced answers versus direct LLM responses.
+
 Type `exit` or `quit` to exit the CLI.
 
 ## Project Structure
@@ -223,12 +268,23 @@ Type `exit` or `quit` to exit the CLI.
 ```
 simple-rag/
 ├── package.json          # Project configuration and dependencies
-├── config.js             # Centralized configuration
-├── index.js              # Interactive CLI entry point
-├── ollama.js             # Ollama API wrapper (embeddings & generation)
-├── chroma.js             # ChromaDB client and helpers
-├── ingest.js             # Document ingestion pipeline
-├── query.js              # Query processing and RAG pipeline
+├── tsconfig.json         # TypeScript configuration
+├── eslint.config.js      # ESLint configuration
+├── index.ts              # Application entry point
+├── src/
+│   ├── cli/
+│   │   └── CLI.ts        # Interactive CLI interface
+│   ├── models/
+│   │   ├── Config.ts     # Configuration interfaces
+│   │   └── index.ts      # Barrel export for all models
+│   ├── services/
+│   │   ├── OllamaService.ts      # Ollama API wrapper (embeddings & generation)
+│   │   ├── ChromaService.ts      # ChromaDB client and helpers
+│   │   ├── IngestionService.ts   # Document ingestion pipeline
+│   │   └── QueryService.ts       # Query processing and RAG pipeline
+│   └── utils/
+│       ├── Config.ts      # Centralized configuration (TypeScript class)
+│       └── ResultCodes.ts # Result code constants
 ├── data/
 │   └── YouTube.txt       # Knowledge source document
 └── README.md             # This file
@@ -236,12 +292,16 @@ simple-rag/
 
 ### Module Responsibilities
 
-- **`config.js`**: Centralized configuration management
-- **`ollama.js`**: Handles embedding generation and LLM text generation
-- **`chroma.js`**: Manages ChromaDB connections and collection operations
-- **`ingest.js`**: Document loading, chunking, embedding, and storage
-- **`query.js`**: Query embedding, similarity search, context assembly, and answer generation
-- **`index.js`**: Interactive CLI interface
+- **`src/models/Config.ts`**: TypeScript interfaces for configuration types (OllamaConfig, ChromaConfig, ChunkingConfig, RetrievalConfig, AppConfig)
+- **`src/models/index.ts`**: Barrel export file for all model interfaces
+- **`src/utils/Config.ts`**: TypeScript class providing centralized configuration management using interfaces from models
+- **`src/services/OllamaService.ts`**: Handles embedding generation and LLM text generation via Ollama API
+- **`src/services/ChromaService.ts`**: Manages ChromaDB connections and collection operations
+- **`src/services/IngestionService.ts`**: Document loading, chunking, embedding, and storage pipeline
+- **`src/services/QueryService.ts`**: Query embedding, similarity search, context assembly, and answer generation (supports both RAG and simple queries)
+- **`src/cli/CLI.ts`**: Interactive CLI interface that orchestrates query services and displays results
+- **`src/utils/ResultCodes.ts`**: Constants for result codes used throughout the application
+- **`index.ts`**: Application entry point that initializes services and starts the CLI
 
 ## How It Works
 
@@ -301,20 +361,26 @@ The RAG prompt is designed for Gemma3:
 
 ### Scripts
 
-- `npm start`: Run the interactive CLI
+- `npm start`: Run the interactive CLI (uses tsx to execute TypeScript directly)
 - `npm run ingest`: Ingest documents into ChromaDB
+- `npm run build`: Compile TypeScript to JavaScript (outputs to `dist/`)
+- `npm run type-check`: Type check TypeScript without emitting files
+- `npm run lint`: Run ESLint on TypeScript files
+- `npm run lint:fix`: Run ESLint and automatically fix issues
 
 ### Adding New Documents
 
 1. Place your document in the `data/` directory
-2. Update `ingest.js` to point to your file, or modify the default path
+2. Update `src/services/IngestionService.ts` to point to your file, or modify the default path in the `ingest()` method call
 3. Run `npm run ingest`
 
 ### Customizing Chunking
 
-Modify `config.js`:
+Modify `src/utils/Config.ts`:
 - `chunkSize`: Larger = more context per chunk, fewer chunks
 - `chunkOverlap`: Larger = more redundancy, better context preservation
+
+The configuration is defined in the `Config` class constructor. You can also override values using environment variables (`OLLAMA_URL`, `CHROMA_URL`).
 
 ## Production Considerations
 

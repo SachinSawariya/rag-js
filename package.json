@@ -5,11 +5,11 @@
   "main": "index.ts",
   "scripts": {
     "start": "tsx index.ts",
-    "ingest": "tsx ingest.ts",
+    "ingest": "tsx src/services/IngestionService.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "lint": "eslint *.ts",
-    "lint:fix": "eslint *.ts --fix"
+    "lint": "eslint *.ts src/**/*.ts",
+    "lint:fix": "eslint *.ts src/**/*.ts --fix"
   },
   "dependencies": {
     "chromadb": "^1.8.1",

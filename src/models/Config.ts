@@ -1,0 +1,27 @@
+export interface OllamaConfig {
+  baseUrl: string;
+  embeddingModel: string;
+  llmModel: string;
+}
+
+export interface ChromaConfig {
+  url: string;
+  collectionName: string;
+}
+
+export interface ChunkingConfig {
+  chunkSize: number;
+  chunkOverlap: number;
+}
+
+export interface RetrievalConfig {
+  nResults: number;
+}
+
+export interface AppConfig {
+  ollama: OllamaConfig;
+  chroma: ChromaConfig;
+  chunking: ChunkingConfig;
+  retrieval: RetrievalConfig;
+}
+
