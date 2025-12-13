@@ -1,6 +1,7 @@
 import { embed, generate } from "./ollama.js";
 import { getCollection } from "./chroma.js";
 import { config } from "./config.js";
+import { ResultCodes } from "./result-codes.js";
 
 export async function ask(question: string): Promise<string> {
   const collection = await getCollection();
@@ -12,19 +13,21 @@ export async function ask(question: string): Promise<string> {
   });
   
   if (results.documents === undefined || results.documents.length === 0 || results.documents[0] === undefined || results.documents[0].length === 0) {
-    throw new Error("No relevant documents found");
+    throw new Error(ResultCodes.NO_RELEVANT_DOCUMENTS);
   }
   
   const context = results.documents[0].join("\n\n---\n\n");
   
-  const prompt = `Use the following context to answer the question. If the context doesn't contain enough information, say so.
+  const prompt = `
+Use the following context to answer the question. If the context doesn't contain enough information, say so.
 
 Context:
 ${context}
 
 Question: ${question}
 
-Answer:`;
+Answer:
+`;
   
   return await generate(prompt);
 }

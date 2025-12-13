@@ -1,5 +1,6 @@
 import { ChromaClient, Collection } from "chromadb";
 import { config } from "./config.js";
+import { ResultCodes } from "./result-codes.js";
 
 const client = new ChromaClient({ path: config.chroma.url });
 
@@ -10,7 +11,7 @@ export async function getCollection(): Promise<Collection> {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`ChromaDB connection failed: ${errorMessage}`);
+    throw new Error(`${ResultCodes.CHROMADB_CONNECTION_FAILED}: ${errorMessage}`);
   }
 }
 

@@ -1,5 +1,6 @@
 import { Ollama } from "ollama";
 import { config } from "./config.js";
+import { ResultCodes } from "./result-codes.js";
 
 const client = new Ollama({ host: config.ollama.baseUrl });
 
@@ -12,7 +13,7 @@ export async function embed(text: string): Promise<number[]> {
     return response.embedding;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Embedding failed: ${errorMessage}`);
+    throw new Error(`${ResultCodes.EMBEDDING_FAILED}: ${errorMessage}`);
   }
 }
 
@@ -37,7 +38,7 @@ export async function generate(prompt: string, stream: boolean = false): Promise
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Generation failed: ${errorMessage}`);
+    throw new Error(`${ResultCodes.GENERATION_FAILED}: ${errorMessage}`);
   }
 }
 

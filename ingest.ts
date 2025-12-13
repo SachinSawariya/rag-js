@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import { embed } from "./ollama.js";
 import { getCollection, getCollectionCount } from "./chroma.js";
 import { config } from "./config.js";
+import { ResultCodes } from "./result-codes.js";
 
 function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   const chunks: string[] = [];
@@ -30,7 +31,7 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
     
     // Safety check: prevent infinite loops
     if (chunks.length > 1000000) {
-      throw new Error("Too many chunks generated. Check chunking parameters.");
+      throw new Error(`${ResultCodes.TOO_MANY_CHUNKS}: Too many chunks generated. Check chunking parameters.`);
     }
   }
   
