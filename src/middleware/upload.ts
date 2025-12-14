@@ -18,14 +18,14 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter: multer.Options["fileFilter"] = (_req, file, cb) => {
-  if (file.mimetype !== "application/pdf") {
-    cb(new Error("Only PDF files are allowed"));
+  if (file.mimetype !== "text/plain") {
+    cb(new Error("Only TXT files are allowed"));
     return;
   }
   cb(null, true);
 };
 
-export const uploadPdf = multer({
+export const uploadTxt = multer({
   storage,
   fileFilter,
   limits: {

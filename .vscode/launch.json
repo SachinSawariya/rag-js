@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug Simple RAG",
+        "type": "node",
+        "request": "launch",
+        "runtimeExecutable": "node",
+        "runtimeArgs": [
+          "--import",
+          "tsx"
+        ],
+        "args": [
+          "${workspaceFolder}/index.ts"
+        ],
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "restart": true,
+        "skipFiles": ["<node_internals>/**"],
+        "env": {
+          "NODE_ENV": "development"
+        },
+        "autoAttachChildProcesses": true
+      }
+    ]
+  }
+  

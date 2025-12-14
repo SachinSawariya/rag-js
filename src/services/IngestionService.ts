@@ -45,17 +45,12 @@ export class IngestionService {
     return chunks;
   }
 
-  async ingest(filePath: string = "./data/YouTube.txt", force: boolean = false): Promise<void> {
+  async ingest(filePath: string = "./data/YouTube.txt"): Promise<void> {
     const collection = await this.chromaService.getCollection();
     const existingCount = await this.chromaService.getCollectionCount(collection);
     
-    if (existingCount > 0 && !force) {
-      console.log(`Collection already has ${existingCount} documents. Use --force to re-ingest.`);
-      return;
-    }
-    
     let workingCollection = collection;
-    if (force && existingCount > 0) {
+    if (existingCount > 0) {
       console.log("Clearing existing collection...");
       await collection.delete();
       workingCollection = await this.chromaService.getCollection();
@@ -93,8 +88,7 @@ if (process.argv[1] === __filename) {
   const chromaService = new ChromaService(config);
   const ingestionService = new IngestionService(ollamaService, chromaService, config);
   
-  const force = process.argv.includes("--force");
-  ingestionService.ingest("./data/YouTube.txt", force).catch((error: unknown) => {
+  ingestionService.ingest("./data/YouTube.txt").catch((error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(errorMessage);
   });

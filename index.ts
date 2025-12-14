@@ -5,7 +5,7 @@ import { QueryService } from "./src/services/QueryService.js";
 import { CLI } from "./src/cli/CLI.js";
 import { IngestionService } from './src/services/IngestionService.js'
 import express, { Request, Response } from "express";
-import { uploadPdf } from "./src/middleware/upload.js"
+import { uploadTxt } from "./src/middleware/upload.js"
 
 const app = express();
 app.use(express.json());
@@ -54,10 +54,10 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
 
 app.post(
   "/file-upload",
-  uploadPdf.single("file"),
+  uploadTxt.single("file"),
   (req: Request, res: Response): void => {
     if (!req.file) {
-      res.status(400).json({ error: "PDF file is required" });
+      res.status(400).json({ error: "TXT file is required" });
       return;
     }
 
@@ -65,14 +65,13 @@ app.post(
       res.status(503).json({ error: "ingestService not ready yet" });
       return;
     }
-    const force = process.argv.includes("--force");
-    ingestService.ingest(`data/${req.file.filename}`, force).catch((error: unknown) => {
+    ingestService.ingest(`data/${req.file.filename}`).catch((error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(errorMessage);
     });
 
     res.json({
-      message: "PDF uploaded successfully",
+      message: "TXT uploaded successfully. Wait a while for the ingestion to complete.",
       fileName: req.file.filename,
       filePath: `data/${req.file.filename}`,
       size: req.file.size,
@@ -80,9 +79,22 @@ app.post(
   }
 );
 
+async function healthCheck() {
+  const ollamaResponse = await fetch("http://localhost:11434/api/tags");
+  if (!ollamaResponse.ok) {
+    throw new Error("Ollama is not running");
+  }
+  const chromaResponse = await fetch("http://localhost:8000/api/v2/heartbeat");
+  if (!chromaResponse.ok) {
+    throw new Error("Chroma is not running");
+  }
+  console.log("Ollama and Chroma are running");
+}
+
 
 async function startServer() {
   try {
+    await healthCheck();
     await main();
 
     app.listen(3000, () => {
