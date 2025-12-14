@@ -1,53 +1,89 @@
 import readlineSync from "readline-sync";
 import { QueryService } from "../services/QueryService.js";
 
-export class CLI {
-  constructor(private queryService: QueryService) {}
+type AnswerResult = {
+  ragAnswer?: string;
+  simpleAnswer?: string;
+};
 
+export class CLI {
+  constructor(private queryService: QueryService) { }
+
+  // ✅ COMMON FUNCTION (single source of truth)
+  private async processQuestion(
+    question: string,
+    logToConsole = false
+  ): Promise<AnswerResult> {
+    console.log(logToConsole ? "\nThinking..." : undefined);
+
+    const [ragAnswer, simpleAnswer] = await Promise.allSettled([
+      this.queryService.ask(question),
+      this.queryService.askSimple(question),
+    ]);
+
+    const result: AnswerResult = {};
+
+    if (ragAnswer.status === "fulfilled") {
+      result.ragAnswer = ragAnswer.value;
+      if (logToConsole) {
+        console.log("\nRAG Answer:\n", ragAnswer.value);
+      }
+    } else if (logToConsole) {
+      console.error(
+        "\nRAG Answer Error:",
+        ragAnswer.reason instanceof Error
+          ? ragAnswer.reason.message
+          : String(ragAnswer.reason)
+      );
+    }
+
+    if (simpleAnswer.status === "fulfilled") {
+      result.simpleAnswer = simpleAnswer.value;
+      if (logToConsole) {
+        console.log("\nSimple Answer:\n", simpleAnswer.value);
+      }
+    } else if (logToConsole) {
+      console.error(
+        "\nSimple Answer Error:",
+        simpleAnswer.reason instanceof Error
+          ? simpleAnswer.reason.message
+          : String(simpleAnswer.reason)
+      );
+    }
+
+    return result;
+  }
+
+  // 🖥️ CLI MODE (interactive)
   async run(): Promise<void> {
     console.log("RAG CLI - Ask questions about YouTube\nType 'exit' to quit\n");
-    
+
     while (true) {
-      const question = readlineSync.question("\nQuestion: ");
-      
-      if (question.toLowerCase() === "exit" || question.toLowerCase() === "quit") {
+      const question = readlineSync.question("\nQuestion: ").trim();
+
+      if (["exit", "quit"].includes(question.toLowerCase())) {
         console.log("Goodbye!");
         break;
       }
-      
-      if (!question.trim()) {
-        continue;
-      }
-      
+
+      if (!question) continue;
+
       try {
-        console.log("\nThinking...");
-        
-        // Get both RAG and simple answers
-        const [ragAnswer, simpleAnswer] = await Promise.allSettled([
-          this.queryService.ask(question),
-          this.queryService.askSimple(question)
-        ]);
-        
-        // Display RAG Answer
-        if (ragAnswer.status === "fulfilled") {
-          console.log("\nRAG Answer:\n", ragAnswer.value);
-        } else {
-          const errorMessage = ragAnswer.reason instanceof Error ? ragAnswer.reason.message : String(ragAnswer.reason);
-          console.error("\nRAG Answer Error:", errorMessage);
-        }
-        
-        // Display Simple Answer
-        if (simpleAnswer.status === "fulfilled") {
-          console.log("\nSimple Answer:\n", simpleAnswer.value);
-        } else {
-          const errorMessage = simpleAnswer.reason instanceof Error ? simpleAnswer.reason.message : String(simpleAnswer.reason);
-          console.error("\nSimple Answer Error:", errorMessage);
-        }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("\nError:", errorMessage);
+        await this.processQuestion(question, true);
+      } catch (error) {
+        console.error(
+          "\nError:",
+          error instanceof Error ? error.message : String(error)
+        );
       }
     }
   }
-}
 
+  // 🌐 API MODE (single request)
+  async askOnce(question: string): Promise<AnswerResult> {
+    if (!question?.trim()) {
+      throw new Error("Question is required");
+    }
+    return this.processQuestion(question.trim(), true);
+  }
+}
