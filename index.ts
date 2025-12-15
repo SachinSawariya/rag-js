@@ -2,41 +2,50 @@ import { Config } from "./src/utils/Config.js";
 import { OllamaService } from "./src/services/OllamaService.js";
 import { ChromaService } from "./src/services/ChromaService.js";
 import { QueryService } from "./src/services/QueryService.js";
-import { CLI } from "./src/cli/CLI.js";
 import { IngestionService } from './src/services/IngestionService.js'
 import express, { Request, Response } from "express";
 import { uploadTxt } from "./src/middleware/upload.js"
+import cors from "cors";
 
 const app = express();
+
+// Enable CORS for Angular frontend
+app.use(cors({
+  origin: 'http://localhost:4200',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
 app.use(express.json());
 
-let cli: CLI | null = null;
-let ingestService: IngestionService | null = null
+
+let ingestService: IngestionService | null = null;
+let queryService: QueryService | null = null;
 
 // 🔹 Initialize services FIRST
-async function main(): Promise<void> {
+function main(): void {
   const config = new Config();
   const ollamaService = new OllamaService(config);
   const chromaService = new ChromaService(config);
-  const queryService = new QueryService(
+  queryService = new QueryService(
     ollamaService,
     chromaService,
     config
   );
   ingestService = new IngestionService(ollamaService, chromaService, config);
 
-  cli = new CLI(queryService);
+
   console.log("✅ Services initialized");
 }
 
 // 🔹 API endpoint
 app.post("/chat", async (req: Request, res: Response): Promise<void> => {
-  if (!cli) {
+  if (!queryService) {
     res.status(503).json({ error: "Server not ready yet" });
     return;
   }
 
-  const question = String(req.body?.question || "").trim();
+  const question = String((req.body as { question?: string })?.question ?? "").trim();
 
   if (!question) {
     res.status(400).json({ error: "Question is required" });
@@ -44,11 +53,28 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const answer = await cli.askOnce(question);
-    res.json(answer);
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+
+    const stream = queryService.askStream(question);
+
+    for await (const chunk of stream) {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    }
+    
+    res.end();
   } catch (error) {
     console.error("Chat error:", error);
-    res.status(500).json({ error: "Error processing the question" });
+    // If headers already sent, we can't send JSON error, but we can close stream
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Error processing the question" });
+    } else {
+      res.end();
+    }
   }
 });
 
@@ -79,7 +105,56 @@ app.post(
   }
 );
 
-async function healthCheck() {
+// SSE endpoint for real-time progress updates
+app.post(
+  "/upload-progress",
+  uploadTxt.single("file"),
+  (req: Request, res: Response): void => {
+    if (!req.file) {
+      res.status(400).json({ error: "TXT file is required" });
+      return;
+    }
+
+    if (!ingestService) {
+      res.status(503).json({ error: "ingestService not ready yet" });
+      return;
+    }
+
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({ stage: 'start', message: 'Starting upload...', percentage: 0 })}\n\n`);
+
+    // Start ingestion with progress callback
+    ingestService.ingest(`data/${req.file.filename}`, (progressInfo) => {
+      // Send progress event
+      res.write(`data: ${JSON.stringify(progressInfo)}\n\n`);
+      
+      // Close connection when complete
+      if (progressInfo.stage === 'complete') {
+        res.end();
+      }
+    }).catch((error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Ingestion error:", errorMessage);
+      
+      // Send error event
+      res.write(`data: ${JSON.stringify({ 
+        stage: 'error', 
+        message: errorMessage,
+        percentage: 0
+      })}\n\n`);
+      res.end();
+    });
+  }
+);
+
+async function healthCheck(): Promise<void> {
   const ollamaResponse = await fetch("http://localhost:11434/api/tags");
   if (!ollamaResponse.ok) {
     throw new Error("Ollama is not running");
@@ -92,10 +167,10 @@ async function healthCheck() {
 }
 
 
-async function startServer() {
+async function startServer(): Promise<void> {
   try {
     await healthCheck();
-    await main();
+    main();
 
     app.listen(3000, () => {
       console.log("🚀 Server running on port 3000");
@@ -106,4 +181,4 @@ async function startServer() {
   }
 }
 
-startServer();
+void startServer();

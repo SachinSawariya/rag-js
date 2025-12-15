@@ -1,0 +1,129 @@
+import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, inject, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { ApiService } from '../../services/api.service';
+import { ChatService } from '../../services/chat.service';
+import { ChatMessage } from '../../models/chat.model';
+
+@Component({
+  selector: 'app-chat',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './chat.component.html',
+  styleUrls: ['./chat.component.css']
+})
+export class ChatComponent implements OnInit, AfterViewChecked {
+  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
+  
+  private readonly apiService = inject(ApiService);
+  private readonly chatService = inject(ChatService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+  
+  messages: ChatMessage[] = [];
+  userInput = '';
+  isLoading = false;
+  errorMessage = '';
+  private shouldScroll = false;
+
+  ngOnInit(): void {
+    this.chatService.messages$.subscribe(messages => {
+      this.messages = messages;
+      this.shouldScroll = true;
+    });
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldScroll) {
+      this.scrollToBottom();
+      this.shouldScroll = false;
+    }
+  }
+
+  sendMessage(): void {
+    if (!this.userInput.trim() || this.isLoading) {
+      return;
+    }
+
+    const question = this.userInput.trim();
+    this.userInput = '';
+    this.errorMessage = '';
+
+    // Add user message to chat
+    this.chatService.addMessage('user', question);
+    
+    // Send to API
+    this.isLoading = true;
+    console.log('Sending message to API...');
+    
+    this.apiService.sendMessage(question).subscribe({
+      next: (chunk) => {
+        // If this is the first chunk (isLoading is still true)
+        if (this.isLoading) {
+          this.isLoading = false;
+          // Create the assistant message with the first chunk
+          this.chatService.addMessage('assistant', chunk);
+        } else {
+          // Append subsequent chunks
+          this.chatService.appendToLastMessage(chunk);
+        }
+        this.cdr.detectChanges(); // Force view update
+      },
+      error: (error) => {
+        console.error('API error:', error);
+        this.isLoading = false;
+        this.errorMessage = error.message || 'Failed to get response';
+        
+        // Remove the user message if there was an error
+        const messages = this.chatService.getMessages();
+        if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+          this.chatService.clearMessages();
+          messages.slice(0, -1).forEach(msg => {
+            this.chatService.addMessage(msg.role, msg.content);
+          });
+          this.userInput = question;
+        }
+        this.cdr.detectChanges();
+      },
+      complete: () => {
+        this.isLoading = false; 
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  onKeyPress(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendMessage();
+    }
+  }
+
+  clearChat(): void {
+    this.chatService.clearMessages();
+    this.errorMessage = '';
+  }
+
+  goToUpload(): void {
+    this.router.navigate(['/']);
+  }
+
+  private scrollToBottom(): void {
+    try {
+      if (this.messagesContainer) {
+        this.messagesContainer.nativeElement.scrollTop = 
+          this.messagesContainer.nativeElement.scrollHeight;
+      }
+    } catch (err) {
+      console.error('Error scrolling to bottom:', err);
+    }
+  }
+
+  formatTime(date: Date): string {
+    return new Date(date).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  }
+}

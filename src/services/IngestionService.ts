@@ -45,13 +45,27 @@ export class IngestionService {
     return chunks;
   }
 
-  async ingest(filePath: string = "./data/YouTube.txt"): Promise<void> {
+  async ingest(
+    filePath: string = "./data/YouTube.txt",
+    onProgress?: (info: {
+      stage: 'clearing' | 'chunking' | 'embedding' | 'complete';
+      current?: number;
+      total?: number;
+      message: string;
+      percentage?: number;
+    }) => void
+  ): Promise<void> {
     const collection = await this.chromaService.getCollection();
     const existingCount = await this.chromaService.getCollectionCount(collection);
     
     let workingCollection = collection;
     if (existingCount > 0) {
       console.log("Clearing existing collection...");
+      onProgress?.({
+        stage: 'clearing',
+        message: 'Clearing existing collection...',
+        percentage: 0
+      });
       await collection.delete();
       workingCollection = await this.chromaService.getCollection();
     }
@@ -60,6 +74,12 @@ export class IngestionService {
     const chunks = this.chunkText(text, this.config.chunking.chunkSize, this.config.chunking.chunkOverlap);
     
     console.log(`Ingesting ${chunks.length} chunks...`);
+    onProgress?.({
+      stage: 'chunking',
+      total: chunks.length,
+      message: `Split document into ${chunks.length} chunks`,
+      percentage: 0
+    });
     
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -71,12 +91,27 @@ export class IngestionService {
         embeddings: [embedding]
       });
       
-      if ((i + 1) % 10 === 0) {
+      const percentage = Math.round(((i + 1) / chunks.length) * 100);
+      
+      if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
         console.log(`Progress: ${i + 1}/${chunks.length} chunks`);
+        onProgress?.({
+          stage: 'embedding',
+          current: i + 1,
+          total: chunks.length,
+          message: `Processing chunk ${i + 1}/${chunks.length}`,
+          percentage
+        });
       }
     }
     
     console.log(`✓ Ingested ${chunks.length} chunks successfully`);
+    onProgress?.({
+      stage: 'complete',
+      total: chunks.length,
+      message: `Successfully ingested ${chunks.length} chunks`,
+      percentage: 100
+    });
   }
 }
 

@@ -46,5 +46,22 @@ export class OllamaService {
       throw new Error(`${ResultCodes.GENERATION_FAILED}: ${errorMessage}`);
     }
   }
+
+  async *generateStream(prompt: string): AsyncGenerator<string> {
+    try {
+      const stream = await this.client.generate({
+        model: this.config.ollama.llmModel,
+        prompt,
+        stream: true
+      });
+
+      for await (const chunk of stream) {
+        yield chunk.response;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`${ResultCodes.GENERATION_FAILED}: ${errorMessage}`);
+    }
+  }
 }
 
