@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { ChatResponse, FileUploadResponse, UploadProgressEvent } from '../models/chat.model';
+import { FileUploadResponse, UploadProgressEvent } from '../models/chat.model';
 
 @Injectable({
   providedIn: 'root'
@@ -79,14 +79,14 @@ export class ApiService {
     });
   }
 
-  sendMessage(question: string): Observable<string> {
+  sendMessage(history: { role: string; content: string }[]): Observable<string> {
     return new Observable<string>((observer) => {
       fetch(`${this.baseUrl}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ history }),
         credentials: 'include'
       }).then(async (response) => {
         if (!response.ok) {

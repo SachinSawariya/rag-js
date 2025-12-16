@@ -43,7 +43,13 @@ Answer:
     return await this.ollamaService.generate(question);
   }
 
-  async *askStream(question: string): AsyncGenerator<string> {
+  async *askStream(history: { role: string; content: string }[]): AsyncGenerator<string> {
+    const lastUserMessage = history.filter(m => m.role === 'user').pop();
+    if (!lastUserMessage) {
+       throw new Error("No user message found in history");
+    }
+    const question = lastUserMessage.content;
+
     const collection = await this.chromaService.getCollection();
     const queryEmbedding = await this.ollamaService.embed(question);
     
@@ -52,24 +58,26 @@ Answer:
       nResults: this.config.retrieval.nResults
     });
     
-    if (results.documents === undefined || results.documents.length === 0 || results.documents[0] === undefined || results.documents[0].length === 0) {
-      throw new Error(ResultCodes.NO_RELEVANT_DOCUMENTS);
+    let context = "";
+    if (results.documents?.length > 0 && results.documents[0]?.length > 0) {
+      context = results.documents[0].join("\n\n---\n\n");
     }
     
-    const context = results.documents[0].join("\n\n---\n\n");
-    
-    const prompt = `
-Use the following context to answer the question. If the context doesn't contain enough information, say so.
+    const systemPrompt = `
+Use the following context to answer the user's question. If the context doesn't contain enough information, you can say so or use your general knowledge, but prioritize the context.
+IMPORTANT => Don't use markdown or any other formatting. Always return answer in plain text. 
 
 Context:
 ${context}
-
-Question: ${question}
-
-Answer:
 `;
     
-    yield* this.ollamaService.generateStream(prompt);
+    // Create new messages array with system prompt at the start
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...history
+    ];
+
+    yield* this.ollamaService.chatStream(messages);
   }
 }
 

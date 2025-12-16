@@ -63,5 +63,22 @@ export class OllamaService {
       throw new Error(`${ResultCodes.GENERATION_FAILED}: ${errorMessage}`);
     }
   }
+
+  async *chatStream(messages: { role: string; content: string }[]): AsyncGenerator<string> {
+    try {
+      const stream = await this.client.chat({
+        model: this.config.ollama.llmModel,
+        messages,
+        stream: true // Enable streaming
+      });
+
+      for await (const chunk of stream) {
+        yield chunk.message.content;
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`${ResultCodes.GENERATION_FAILED}: ${errorMessage}`);
+    }
+  }
 }
 

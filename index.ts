@@ -45,10 +45,10 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const question = String((req.body as { question?: string })?.question ?? "").trim();
+  const history = (req.body as { history?: { role: string; content: string }[] })?.history;
 
-  if (!question) {
-    res.status(400).json({ error: "Question is required" });
+  if (!history || !Array.isArray(history) || history.length === 0) {
+    res.status(400).json({ error: "Chat history is required" });
     return;
   }
 
@@ -60,7 +60,7 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
     res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
     res.setHeader("Access-Control-Allow-Credentials", "true");
 
-    const stream = queryService.askStream(question);
+    const stream = queryService.askStream(history);
 
     for await (const chunk of stream) {
       res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
