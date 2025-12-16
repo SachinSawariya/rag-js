@@ -23,3 +23,11 @@ export interface UploadProgressEvent {
   message: string;
   percentage?: number;
 }
+
+export interface FileMetadata {
+  id: string;
+  name: string;
+  type: string;
+  createdOn: string;
+  path: string;
+}

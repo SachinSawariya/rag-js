@@ -43,7 +43,7 @@ Answer:
     return await this.ollamaService.generate(question);
   }
 
-  async *askStream(history: { role: string; content: string }[]): AsyncGenerator<string> {
+  async *askStream(history: { role: string; content: string }[], fileId?: string): AsyncGenerator<string> {
     const lastUserMessage = history.filter(m => m.role === 'user').pop();
     if (!lastUserMessage) {
        throw new Error("No user message found in history");
@@ -53,10 +53,20 @@ Answer:
     const collection = await this.chromaService.getCollection();
     const queryEmbedding = await this.ollamaService.embed(question);
     
-    const results = await collection.query({
+    const queryOptions: {
+      queryEmbeddings: number[][];
+      nResults: number;
+      where?: Record<string, string>;
+    } = {
       queryEmbeddings: [queryEmbedding],
       nResults: this.config.retrieval.nResults
-    });
+    };
+
+    if (fileId !== undefined && fileId !== null && fileId !== '') {
+      queryOptions.where = { fileId: fileId };
+    }
+
+    const results = await collection.query(queryOptions);
     
     let context = "";
     if (results.documents?.length > 0 && results.documents[0]?.length > 0) {

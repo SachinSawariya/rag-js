@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -13,6 +13,7 @@ import { ApiService } from '../../services/api.service';
 export class FileUploadComponent {
   private readonly apiService = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
   
   selectedFile: File | null = null;
   isDragging = false;
@@ -111,6 +112,7 @@ export class FileUploadComponent {
           this.isUploading = false;
           this.errorMessage = event.message || 'An error occurred during upload';
         }
+        this.cdr.detectChanges();
       },
       error: (error) => {
         this.isUploading = false;

@@ -1,15 +1,19 @@
 import fs from "fs";
 import { fileURLToPath } from "url";
+import path from "path";
+import crypto from "crypto";
 import { OllamaService } from "./OllamaService.js";
 import { ChromaService } from "./ChromaService.js";
 import { Config } from "../utils/Config.js";
 import { ResultCodes } from "../utils/ResultCodes.js";
+import { FileRepository } from "../repositories/FileRepository.js";
 
 export class IngestionService {
   constructor(
     private ollamaService: OllamaService,
     private chromaService: ChromaService,
-    private config: Config
+    private config: Config,
+    private fileRepository: FileRepository = new FileRepository()
   ) {}
 
   private chunkText(text: string, chunkSize: number, overlap: number): string[] {
@@ -56,23 +60,25 @@ export class IngestionService {
     }) => void
   ): Promise<void> {
     const collection = await this.chromaService.getCollection();
-    const existingCount = await this.chromaService.getCollectionCount(collection);
-    
-    let workingCollection = collection;
-    if (existingCount > 0) {
-      console.log("Clearing existing collection...");
-      onProgress?.({
-        stage: 'clearing',
-        message: 'Clearing existing collection...',
-        percentage: 0
-      });
-      await collection.delete();
-      workingCollection = await this.chromaService.getCollection();
-    }
     
     const text = fs.readFileSync(filePath, "utf-8");
     const chunks = this.chunkText(text, this.config.chunking.chunkSize, this.config.chunking.chunkOverlap);
     
+    // Generate File Metadata
+    const fileId = crypto.randomUUID();
+    const fileName = path.basename(filePath);
+    const fileMetadata = {
+      id: fileId,
+      name: fileName,
+      type: path.extname(filePath).slice(1), // remove dot
+      createdOn: new Date().toISOString(),
+      path: filePath
+    };
+
+    // Save metadata
+    this.fileRepository.save(fileMetadata);
+    console.log(`Registered file ${fileName} with ID ${fileId}`);
+
     console.log(`Ingesting ${chunks.length} chunks...`);
     onProgress?.({
       stage: 'chunking',
@@ -85,8 +91,9 @@ export class IngestionService {
       const chunk = chunks[i];
       const embedding = await this.ollamaService.embed(chunk);
       
-      await workingCollection.add({
-        ids: [`chunk-${i}`],
+      await collection.add({
+        ids: [`${fileId}-chunk-${i}`],
+        metadatas: [{ fileId: fileId, fileName: fileName }],
         documents: [chunk],
         embeddings: [embedding]
       });
@@ -123,7 +130,8 @@ if (process.argv[1] === __filename) {
   const chromaService = new ChromaService(config);
   const ingestionService = new IngestionService(ollamaService, chromaService, config);
   
-  ingestionService.ingest("./data/YouTube.txt").catch((error: unknown) => {
+  const filePath = process.argv[2] ?? "./data/YouTube.txt";
+  ingestionService.ingest(filePath).catch((error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(errorMessage);
   });

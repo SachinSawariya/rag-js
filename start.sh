@@ -52,10 +52,6 @@ cleanup() {
     echo "🛑 Stopping servers..."
     kill $BACKEND_PID 2>/dev/null
     kill $FRONTEND_PID 2>/dev/null
-    
-    echo "🧹 Removing ChromaDB container and volume..."
-    docker stop chromadb >/dev/null 2>&1
-    docker rm -v chromadb >/dev/null 2>&1
     exit
 }
 

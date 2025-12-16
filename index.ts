@@ -45,7 +45,9 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const history = (req.body as { history?: { role: string; content: string }[] })?.history;
+  const body = req.body as { history?: { role: string; content: string }[]; fileId?: string };
+  const history = body?.history;
+  const fileId = body?.fileId;
 
   if (!history || !Array.isArray(history) || history.length === 0) {
     res.status(400).json({ error: "Chat history is required" });
@@ -60,7 +62,7 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
     res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
     res.setHeader("Access-Control-Allow-Credentials", "true");
 
-    const stream = queryService.askStream(history);
+    const stream = queryService.askStream(history, fileId);
 
     for await (const chunk of stream) {
       res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
@@ -76,6 +78,15 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
       res.end();
     }
   }
+});
+
+import { FileRepository } from "./src/repositories/FileRepository.js";
+const fileRepository = new FileRepository();
+
+app.get("/files", (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const files = fileRepository.getAll();
+  res.json(files);
 });
 
 app.post(

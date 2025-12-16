@@ -27,10 +27,27 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   errorMessage = '';
   private shouldScroll = false;
 
+  files: { id: string; name: string }[] = [];
+  selectedFileId = '';
+
   ngOnInit(): void {
     this.chatService.messages$.subscribe(messages => {
       this.messages = messages;
       this.shouldScroll = true;
+    });
+
+    this.loadFiles();
+  }
+
+  loadFiles(): void {
+    this.apiService.getFiles().subscribe({
+      next: (files) => {
+        this.files = files;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading files:', error);
+      }
     });
   }
 
@@ -63,7 +80,7 @@ export class ChatComponent implements OnInit, AfterViewChecked {
       content: msg.content
     }));
     
-    this.apiService.sendMessage(history).subscribe({
+    this.apiService.sendMessage(history, this.selectedFileId).subscribe({
       next: (chunk) => {
         // If this is the first chunk (isLoading is still true)
         if (this.isLoading) {
@@ -109,6 +126,11 @@ export class ChatComponent implements OnInit, AfterViewChecked {
   clearChat(): void {
     this.chatService.clearMessages();
     this.errorMessage = '';
+  }
+
+  onFileSelected(fileId: string): void {
+    this.selectedFileId = fileId;
+    this.clearChat();
   }
 
   goToUpload(): void {

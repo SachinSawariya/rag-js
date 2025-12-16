@@ -17,6 +17,12 @@
 
 .header-content {
   flex: 1;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.header-content:hover {
+  opacity: 0.8;
 }
 
 .header-title {
@@ -35,6 +41,35 @@
 .header-actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.file-selector {
+  padding: 0 1rem;
+  height: 40px;
+  border: none;
+  background: #edf2f7;
+  color: #4a5568;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 150px;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
+.file-selector:hover {
+  background-color: #e2e8f0;
+  transform: translateY(-2px);
+}
+
+.file-selector:focus {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .icon-button {
@@ -207,7 +242,9 @@
 }
 
 @keyframes bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0);
     opacity: 0.5;
   }
