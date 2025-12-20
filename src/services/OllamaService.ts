@@ -1,5 +1,5 @@
 import { Ollama } from "ollama";
-import { Config } from "../utils/Config.js";
+import { Config } from "../config/Config.js";
 import { ResultCodes } from "../utils/ResultCodes.js";
 
 export class OllamaService {

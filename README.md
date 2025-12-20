@@ -53,6 +53,8 @@ ollama pull mxbai-embed-large
    npm install
    ```
 
+   Also do `npm i` inside `FRONTEND` folder
+
 3. **Start ChromaDB** (in a separate terminal):
    ```bash
    docker run -d -p 8000:8000 --name chromadb chromadb/chroma

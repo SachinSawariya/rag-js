@@ -1,4 +1,4 @@
-import { Config } from "./src/utils/Config.js";
+import { Config } from "./src/config/Config.js";
 import { OllamaService } from "./src/services/OllamaService.js";
 import { ChromaService } from "./src/services/ChromaService.js";
 import { QueryService } from "./src/services/QueryService.js";
@@ -6,6 +6,7 @@ import { IngestionService } from './src/services/IngestionService.js'
 import express, { Request, Response } from "express";
 import { uploadTxt } from "./src/middleware/upload.js"
 import cors from "cors";
+import { FileRepository } from "./src/repositories/FileRepository.js";
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 
 let ingestService: IngestionService | null = null;
 let queryService: QueryService | null = null;
+const fileRepository = new FileRepository();
 
 // 🔹 Initialize services FIRST
 function main(): void {
@@ -80,10 +82,7 @@ app.post("/chat", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-import { FileRepository } from "./src/repositories/FileRepository.js";
-const fileRepository = new FileRepository();
-
-app.get("/files", (req: Request, res: Response) => {
+app.get("/files", (_: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   const files = fileRepository.getAll();
   res.json(files);

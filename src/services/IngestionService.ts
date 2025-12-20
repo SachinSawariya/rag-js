@@ -4,7 +4,7 @@ import path from "path";
 import crypto from "crypto";
 import { OllamaService } from "./OllamaService.js";
 import { ChromaService } from "./ChromaService.js";
-import { Config } from "../utils/Config.js";
+import { Config } from "../config/Config.js";
 import { ResultCodes } from "../utils/ResultCodes.js";
 import { FileRepository } from "../repositories/FileRepository.js";
 
